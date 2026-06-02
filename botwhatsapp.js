@@ -5,8 +5,8 @@ const {
 } = require("@whiskeysockets/baileys");
 
 const qrcode = require("qrcode-terminal");
-// 🚀 استيراد مكتبة جوجل جماناي الرسمية الحديثة
-const { GoogleGenAI } = require("@google/genai");
+// 🚀 استيراد مكتبة Groq الرسمية
+const Groq = require("groq-sdk");
 
 // 🌐 سيرفر الويب المخصص لمنصة Render لضمان بقاء البوت حياً 24 ساعة
 const express = require('express');
@@ -21,9 +21,9 @@ app.listen(PORT, () => {
   console.log(`🌐 Web server is running on port ${PORT}`);
 });
 
-// تهيئة عميل جماناي الذكي (يقرأ المفتاح تلقائياً من إعدادات السيرفر للحماية)
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// تهيئة عميل Groq الذكي (يقرأ المفتاح تلقائياً من إعدادات السيرفر للحماية)
+const apiKey = process.env.GROQ_API_KEY; // تم التعديل إلى GROQ_API_KEY
+const groq = new Groq({ apiKey: apiKey });
 
 // Destination restaurant JID and details
 const RESTAURANT_NUMBER = "967773267572@s.whatsapp.net";
@@ -57,7 +57,7 @@ const RESTAURANT_MENU = `
 🥤 المشروبات (الموزع / الحبة / البارد):
 * بيبسي: 300 ريال
 * سفن: 300 ريال
-* mيرندا: 300 ريال
+* ميرندا: 300 ريال
 * ماء (مشلي): 200 ريال
 
 🧄 الصوصات والمقبلات المجانية (تأتي مع الطلب حسب الرغبة):
@@ -219,26 +219,27 @@ async function processUserQueue(from, sock) {
       return; 
     }
 
+    // 🛠️ تعديل هيكلة مصفوفة الجلسات (Sessions) لتناسب Groq
     if (!sessions[from]) {
       sessions[from] = [];
     }
 
-    sessions[from].push({ role: "user", parts: [{ text: currentMsg.text }] });
+    sessions[from].push({ role: "user", content: currentMsg.text });
 
-    // 🛠️ تعديل الاستدعاء ليتناسب بدقة 100% مع المكتبة الحديثة @google/genai
-    const responseAI = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
-      contents: [
-        { role: "user", parts: [{ text: generateSystemPrompt() }] }, 
+    // 🛠️ استدعاء Groq API 
+    const responseAI = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: generateSystemPrompt() },
         ...sessions[from]
       ],
-      config: {
-        temperature: 0.15 
-      }
+      model: "llama-3.3-70b-versatile", // موديل قوي جداً للتعامل مع التعليمات المعقدة والعربية
+      temperature: 0.15 
     });
 
-    const response = responseAI.text || "حدث خطأ أثناء معالجة الطلب.";
-    sessions[from].push({ role: "model", parts: [{ text: response }] }); 
+    const response = responseAI.choices[0]?.message?.content || "حدث خطأ أثناء معالجة الطلب.";
+    
+    // تسجيل رد البوت في الجلسة بالهيكلة الجديدة
+    sessions[from].push({ role: "assistant", content: response }); 
 
     if (response.includes("CONFIRMED_ORDER")) {
       let cleanOrder = response.split("CONFIRMED_ORDER")[1] || response;
@@ -267,8 +268,8 @@ async function processUserQueue(from, sock) {
       await sock.sendMessage(from, { text: response });
     }
 
-  } catch (geminiError) {
-    console.error(`❌ Gemini Processing Engine Exception for [${from}]:`, geminiError);
+  } catch (groqError) {
+    console.error(`❌ Groq Processing Engine Exception for [${from}]:`, groqError);
     await sock.sendMessage(from, { text: "⚠️ نعتذر منك يا غالي، هناك ضغط حالي على النظام. يرجى إعادة إرسال رسالتك الأخيرة وسأخدمك فوراً من عيوني! ✨" });
   } finally {
     processingLocks[from] = false;
@@ -317,7 +318,7 @@ async function startBot() {
       }
     } else if (connection === "open") {
       console.log("==================================================");
-      console.log("✅ Bot successfully connected. Google Gemini Engine active!");
+      console.log("✅ Bot successfully connected. Groq Engine active!");
       console.log("==================================================");
     }
   });
