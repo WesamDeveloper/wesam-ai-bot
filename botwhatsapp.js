@@ -30,7 +30,7 @@ const groq = new Groq({ apiKey: apiKey });
 // Destination restaurant JID and details
 const RESTAURANT_NUMBER = "967773267572@s.whatsapp.net";
 const RESTAURANT_RAW_PHONE = "+967773267572";
-const RESTAURANT_NAME = "شوارما هت";
+const RESTAURANT_NAME = "شوارما هبروستد تايم";
 
 // ==========================================
 // 🍔 المنيو الرسمي القابل للتعديل والتغيير
